@@ -448,9 +448,9 @@ the idea is simple, we just iterate the `_rules`:
 
 + When the event is done, we delete it from the `list<_rules>`.
 + When the event's file descriptor is closed, we do the above.
-+ When event's `intertest()` is true, add it to the `vector<pollfd>`.
++ When event's `interest()` is true, add it to the `vector<pollfd>`.
 
-Now we use system call `pool` to do I/O. Then process the I/O result.
+Now we use system call `poll` to do I/O. Then process the I/O result.
 
 ```c++
 EventLoop::Result EventLoop::wait_next_event(const int timeout_ms) {
@@ -490,7 +490,7 @@ EventLoop::Result EventLoop::wait_next_event(const int timeout_ms) {
       }
     }
 
-    // do the pooling
+    // do the polling
   }
 }
 ```

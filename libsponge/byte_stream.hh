@@ -11,24 +11,17 @@
 //! and then no more bytes can be written.
 class ByteStream {
   private:
-    // Your code here -- add private members as necessary.
-
-    // Hint: This doesn't need to be a sophisticated data structure at
-    // all, but if any of your tests are taking longer than a second,
-    // that's a sign that you probably want to keep exploring
-    // different approaches.write
-
-    int _capacity;
-    std::vector<char> _byteStream{};
-    size_t _write_ptr = 0;
-    size_t _read_ptr = 0;
-    size_t _write_bytes_count = 0;
-    size_t _read_bytes_count = 0;
-    size_t _size = 0;
-    bool _input_end = false;
-    bool _error{};  //!< Flag indicating that the stream suffered an error.
-    void next_write(size_t size) { _write_ptr = (_write_ptr + size) % _capacity; }
-    void next_read(size_t size) { _read_ptr = (_read_ptr + size) % _capacity; }
+    int _capacity;                   //!< the capacity of the ByteStream.
+    std::vector<char> ringBuffer{};  //!< the ringBuffer.
+    size_t _write_ptr = 0;           //!< the write pointer.
+    size_t _read_ptr = 0;            //!< the read pointer.
+    size_t _write_bytes_count = 0;   //!< record how many bytes are written.
+    size_t _read_bytes_count = 0;    //!< record how many bytes are read.
+    size_t _size = 0;                //!< the current size of the ringBuffer
+    bool _input_end = false;         //!< whether the writing should be end
+    bool _error = false;             //!< Flag indicating that the stream suffered an error.
+    void advance_write(size_t size) { _write_ptr = (_write_ptr + size) % _capacity; }
+    void advance_read(size_t size) { _read_ptr = (_read_ptr + size) % _capacity; }
 
   public:
     //! Construct a stream with room for `capacity` bytes.

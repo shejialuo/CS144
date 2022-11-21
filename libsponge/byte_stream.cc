@@ -1,15 +1,8 @@
 #include "byte_stream.hh"
 
-// Dummy implementation of a flow-controlled in-memory byte stream.
-
-// For Lab 0, please replace with a real implementation that passes the
-// automated checks run by `make check_lab0`.
-
-// You will need to add private members to the class declaration in `byte_stream.hh`
-
 using namespace std;
 
-ByteStream::ByteStream(const size_t capacity) : _capacity(capacity) { _byteStream.resize(_capacity); }
+ByteStream::ByteStream(const size_t capacity) : _capacity(capacity) { ringBuffer.resize(_capacity); }
 
 size_t ByteStream::write(const string &data) {
     if (input_ended()) {
@@ -18,8 +11,8 @@ size_t ByteStream::write(const string &data) {
     }
     size_t length = std::min(remaining_capacity(), data.size());
     for (size_t i = 0; i < length; ++i) {
-        _byteStream[_write_ptr] = data[i];
-        next_write(1);
+        ringBuffer[_write_ptr] = data[i];
+        advance_write(1);
     }
     _size += length;
     _write_bytes_count += length;
@@ -31,7 +24,7 @@ string ByteStream::peek_output(const size_t len) const {
     std::string str{};
     const size_t length = std::min(len, buffer_size());
     for (size_t i = 0; i < length; ++i) {
-        str.push_back(_byteStream[(i + _read_ptr) % _capacity]);
+        str.push_back(ringBuffer[(i + _read_ptr) % _capacity]);
     }
     return str;
 }
@@ -39,7 +32,7 @@ string ByteStream::peek_output(const size_t len) const {
 //! \param[in] len bytes will be removed from the output side of the buffer
 void ByteStream::pop_output(const size_t len) {
     const size_t length = std::min(len, buffer_size());
-    next_read(length);
+    advance_read(length);
     _size -= length;
     _read_bytes_count += length;
 }
@@ -49,9 +42,6 @@ void ByteStream::pop_output(const size_t len) {
 //! \returns a string
 std::string ByteStream::read(const size_t len) {
     std::string str{};
-    /*
-      * This really sucks.
-    */
     str = peek_output(len);
     pop_output(len);
     return str;

@@ -11,15 +11,13 @@
 //! possibly overlapping) into an in-order byte stream.
 class StreamReassembler {
   private:
-    // Your code here -- add private members as necessary.
-
-    ByteStream _output;  //!< The reassembled in-order byte stream
-    size_t _capacity;    //!< The maximum number of bytes
-    size_t _start = 0;
-    size_t _unassembly = 0;
-    bool _should_eof = false;
-    std::vector<char> _stream{};
-    std::vector<bool> _dirty{};
+    ByteStream _output;           //!< The reassembled in-order byte stream
+    size_t _capacity;             //!< The maximum number of bytes
+    size_t _next_index = 0;       //!< The next index we except
+    size_t _unassembly = 0;       //!< The number of bytes in the substrings stored but not yet reassembled
+    bool _should_eof = false;     //!< Flag about telling ByteStream to end input
+    std::vector<char> _stream{};  //!< The window
+    std::vector<bool> _dirty{};   //!< A table to indicate whether the element is stored
     size_t next(size_t ptr) { return (ptr + 1) % _capacity; }
 
   public:

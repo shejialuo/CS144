@@ -16,7 +16,7 @@ using namespace std;
 WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
     // Because adding unsigned integer would automatically overflow
     // thus we can utilize this feature to gracefully deal with this problem.
-    return isn + uint32_t(n);
+    return isn + static_cast<uint32_t>(n);
 }
 
 //! Transform a WrappingInt32 into an "absolute" 64-bit sequence number (zero-indexed)

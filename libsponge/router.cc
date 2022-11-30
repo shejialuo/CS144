@@ -29,14 +29,39 @@ void Router::add_route(const uint32_t route_prefix,
     cerr << "DEBUG: adding route " << Address::from_ipv4_numeric(route_prefix).ip() << "/" << int(prefix_length)
          << " => " << (next_hop.has_value() ? next_hop->ip() : "(direct)") << " on interface " << interface_num << "\n";
 
-    DUMMY_CODE(route_prefix, prefix_length, next_hop, interface_num);
-    // Your code here.
+    RouterInformation record{};
+    record.route_prefix = route_prefix;
+    record.prefix_length = prefix_length;
+    record.next_hop = next_hop;
+    record.interface_num = interface_num;
+    _router_table.push_back(record);
 }
 
 //! \param[in] dgram The datagram to be routed
 void Router::route_one_datagram(InternetDatagram &dgram) {
-    DUMMY_CODE(dgram);
-    // Your code here.
+    int max_length = -1;
+    optional<Address> next_hop{};
+    int interface_num = -1;
+
+    // We just iterate the record and fined the longest-prefix-match
+    for (auto &&record : _router_table) {
+        uint32_t mask = record.prefix_length == 0 ? 0 : numeric_limits<int>::min() >> (record.prefix_length - 1);
+        if ((dgram.header().dst & mask) == record.route_prefix && max_length < record.prefix_length) {
+            max_length = record.prefix_length;
+            next_hop = record.next_hop;
+            interface_num = record.interface_num;
+        }
+    }
+
+    if (max_length == -1 || dgram.header().ttl == 0 || --dgram.header().ttl == 0) {
+        return;
+    }
+
+    if (next_hop.has_value()) {
+        _interfaces[interface_num].send_datagram(dgram, next_hop.value());
+    } else {
+        _interfaces[interface_num].send_datagram(dgram, Address::from_ipv4_numeric(dgram.header().dst));
+    }
 }
 
 void Router::route() {

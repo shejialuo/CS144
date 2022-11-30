@@ -1,12 +1,44 @@
-#include "network_interface.hh"
+# Lab 5
 
-#include "arp_message.hh"
-#include "ethernet_frame.hh"
+First you should carefully read the docs provided by lab. I give some important things here.
 
-#include <iostream>
+> If the destination Ethernet address is unknown, broadcast an ARP request for the next hop's Ethernet address and queue the IP datagram so it can be sent after the ARP reply is received. If the network already interface already sent an ARP request about the same IP address in the last five seconds, don't send a second request.
 
-using namespace std;
+For the above description, it is obvious that we need to stores the IP datagram and also the time since it has been sent. When we receive a new IP datagram we need to check whether it is in the list. I use the following data structure:
 
+```c++
+    //! information for the block ethernet frame and the time since it has been sent
+    struct BlockedEthernetFrame {
+        EthernetFrame _frame{};
+        size_t _time{};
+    };
+
+    //! mapping from next-hop-ip to BlockedEthernetFrame
+    std::unordered_map<uint32_t, BlockedEthernetFrame> blocked{};
+```
+
+> If the inbound frame is ARP, parse the payload as an `ARPMessage` and, if successful, remember the mapping between the sender's IP address and Ethernet address for 30 seconds
+
+As you can see, we need to maintain the mapping cache from ip address to the Ethernet address and with expiration time 30 seconds. I use the following data structure.
+
+```c++
+    //! information for the Ethernet cache
+    struct EthernetEntry {
+        EthernetAddress _mac{};
+        size_t _time{};
+    };
+
+    //! the mapping cache from next-hop-ip to EthernetAddress
+    std::unordered_map<uint32_t, EthernetEntry> _arp_cache{};
+```
+
+## Auxiliary functions
+
+For this lab, we need to create `EthernetFrame` with different type (`TYPE_IPv4` and `TYPE_ARP`) and with different payload. For `TYPE_IPv4`, we do not consider payload, for `TYPE_ARP`, we need to consider its payload, we need to create the `ARPMessage` class.
+
+So I first define a function named `new_ethernet_frame`, which unifies the process of creating different kinds of `EthernetFrame`.
+
+```c++
 EthernetFrame NetworkInterface::new_ethernet_frame(uint16_t type,
                                                    EthernetAddress src,
                                                    EthernetAddress dst,
@@ -21,7 +53,11 @@ EthernetFrame NetworkInterface::new_ethernet_frame(uint16_t type,
 }
 
 void NetworkInterface::set_ethernet_frame_dst(EthernetFrame &frame, EthernetAddress dst) { frame.header().dst = dst; }
+```
 
+Then, i define a function named `create_arp_message`, which creates `ARPMessage` instance.
+
+```c++
 ARPMessage NetworkInterface::create_arp_message(uint32_t sender_ip_address,
                                                 EthernetAddress sender_ethernet_address,
                                                 uint32_t target_ip_address,
@@ -35,18 +71,15 @@ ARPMessage NetworkInterface::create_arp_message(uint32_t sender_ip_address,
     message.opcode = opcode;
     return message;
 }
+```
 
-//! \param[in] ethernet_address Ethernet (what ARP calls "hardware") address of the interface
-//! \param[in] ip_address IP (what ARP calls "protocol") address of the interface
-NetworkInterface::NetworkInterface(const EthernetAddress &ethernet_address, const Address &ip_address)
-    : _ethernet_address(ethernet_address), _ip_address(ip_address) {
-    cerr << "DEBUG: Network interface has Ethernet address " << to_string(_ethernet_address) << " and IP address "
-         << ip_address.ip() << "\n";
-}
+## Code
 
-//! \param[in] dgram the IPv4 datagram to be sent
-//! \param[in] next_hop the IP address of the interface to send it to (typically a router or default gateway, but may also be another host if directly connected to the same network as the destination)
-//! (Note: the Address type can be converted to a uint32_t (raw 32-bit IP address) with the Address::ipv4_numeric() method.)
+This lab is not difficult, you could see my code for explanation, there are a lot of comments which describe the intent of the code.
+
+### send_datagram
+
+```c++
 void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Address &next_hop) {
     // convert IP address of next hop to raw 32-bit representation (used in ARP header)
     const uint32_t next_hop_ip = next_hop.ipv4_numeric();
@@ -79,8 +112,11 @@ void NetworkInterface::send_datagram(const InternetDatagram &dgram, const Addres
         frames_out().push(arp_ethernet_frame);
     }
 }
+```
 
-//! \param[in] frame the incoming Ethernet frame
+### recv_frame
+
+```c++
 optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &frame) {
     optional<InternetDatagram> new_datagram{};
 
@@ -132,8 +168,11 @@ optional<InternetDatagram> NetworkInterface::recv_frame(const EthernetFrame &fra
     }
     return new_datagram;
 }
+```
 
-//! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
+### tick
+
+```c++
 void NetworkInterface::tick(const size_t ms_since_last_tick) {
     // We should iterate the `blocked`
     for (auto &&entry : blocked) {
@@ -144,3 +183,4 @@ void NetworkInterface::tick(const size_t ms_since_last_tick) {
         cache.second._time += ms_since_last_tick;
     }
 }
+```

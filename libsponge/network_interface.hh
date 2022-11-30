@@ -1,12 +1,14 @@
 #ifndef SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 #define SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
 #include <optional>
 #include <queue>
+#include <unordered_map>
 
 //! \brief A "network interface" that connects IP (the internet layer, or network layer)
 //! with Ethernet (the network access layer, or link layer).
@@ -39,6 +41,37 @@ class NetworkInterface {
 
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
+
+    //! information for the block ethernet frame and the time since it has been sent
+    struct BlockedEthernetFrame {
+        EthernetFrame _frame{};
+        size_t _time{};
+    };
+
+    //! mapping from next-hop-ip to BlockedEthernetFrame
+    std::unordered_map<uint32_t, BlockedEthernetFrame> blocked{};
+
+    //! information for the Ethernet cache
+    struct EthernetEntry {
+        EthernetAddress _mac{};
+        size_t _time{};
+    };
+
+    //! the mapping cache from next-hop-ip to EthernetAddress
+    std::unordered_map<uint32_t, EthernetEntry> _arp_cache{};
+
+    //! a helper function to create the new EthernetFrame
+    EthernetFrame new_ethernet_frame(uint16_t type, EthernetAddress src, EthernetAddress dst, BufferList payload);
+
+    //! a helper function to set the EthernetFrame dst
+    void set_ethernet_frame_dst(EthernetFrame &frame, EthernetAddress dst);
+
+    //! a helper function to create new ARPMessage
+    ARPMessage create_arp_message(uint32_t sender_ip_address,
+                                  EthernetAddress sender_ethernet_address,
+                                  uint32_t target_ip_address,
+                                  EthernetAddress target_ethernet_address,
+                                  uint16_t opcode);
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
